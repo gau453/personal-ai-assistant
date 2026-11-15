@@ -113,8 +113,7 @@ def ask_agent(messages):
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=messages,
-            temperature=0.7,
-            max_tokens=2048
+            max_completion_tokens=2048
         )
 
         # Check response structure.
