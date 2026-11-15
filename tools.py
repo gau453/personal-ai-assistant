@@ -1,5 +1,4 @@
 
-
 import sqlite3
 from contextlib import closing
 
@@ -9,10 +8,6 @@ DB_NAME = "personal_assistant.db"
 def connect_db():
     return sqlite3.connect(DB_NAME)
 
-
-# =====================================
-# CREATE TASK TABLE
-# =====================================
 
 def create_task_table():
     with closing(connect_db()) as conn:
@@ -29,15 +24,11 @@ def create_task_table():
         conn.commit()
 
 
-# =====================================
-# ADD A TASK
-# =====================================
-
 def add_task(task):
-    task = task.strip()
-
-    if not task:
+    if not isinstance(task, str) or not task.strip():
         return "Task cannot be empty."
+
+    task = task.strip()
 
     with closing(connect_db()) as conn:
         cursor = conn.cursor()
@@ -52,38 +43,31 @@ def add_task(task):
     return f"Task added successfully: {task}"
 
 
-# =====================================
-# GET ALL TASKS
-# =====================================
-
 def get_tasks():
     with closing(connect_db()) as conn:
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT * FROM tasks ORDER BY id"
-        )
+        cursor.execute("""
+            SELECT id, task, completed
+            FROM tasks
+            ORDER BY id
+        """)
 
-        tasks = cursor.fetchall()
+        return cursor.fetchall()
 
-    if not tasks:
-        return "No tasks found."
-
-    return tasks
-
-
-# =====================================
-# COMPLETE A TASK
-# =====================================
 
 def complete_task(task_id):
+    if not isinstance(task_id, int) or task_id <= 0:
+        return "Invalid task ID."
+
     with closing(connect_db()) as conn:
         cursor = conn.cursor()
 
-        cursor.execute(
-            "UPDATE tasks SET completed = 1 WHERE id = ?",
-            (task_id,)
-        )
+        cursor.execute("""
+            UPDATE tasks
+            SET completed = 1
+            WHERE id = ?
+        """, (task_id,))
 
         updated = cursor.rowcount
         conn.commit()
