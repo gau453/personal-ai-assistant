@@ -379,7 +379,7 @@ def handle_memory_command(text):
             memory = get_memory("learning")
 
             if memory:
-                return f"Saved learning: {memory[2]}"
+                return f"Saved learning: {memory}"
 
             return "No learning information found."
 
