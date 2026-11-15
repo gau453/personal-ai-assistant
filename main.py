@@ -144,7 +144,7 @@ AI:
         ):
             return "I don't have your learning goal saved right now."
 
-        return "You are learning " + str(learning)
+        return "You are learning " + str(learning[2])
 
     # FORGET LEARNING GOAL
     if text in ["forget my learning", "forget my learning goal"]:
