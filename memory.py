@@ -1,5 +1,3 @@
-
-
 import sqlite3
 from contextlib import closing
 
@@ -9,10 +7,6 @@ DB_NAME = "personal_assistant.db"
 def connect_db():
     return sqlite3.connect(DB_NAME)
 
-
-# =====================================
-# CREATE MEMORY TABLE
-# =====================================
 
 def create_memory_table():
     with closing(connect_db()) as conn:
@@ -29,11 +23,10 @@ def create_memory_table():
         conn.commit()
 
 
-# =====================================
-# SAVE OR UPDATE A MEMORY
-# =====================================
-
 def save_memory(key, value):
+    if not isinstance(key, str) or not isinstance(value, str):
+        return "Memory key and value must be text."
+
     key = key.strip().lower().replace(" ", "_")
     value = value.strip()
 
@@ -55,51 +48,41 @@ def save_memory(key, value):
     return f"I'll remember: {key} = {value}"
 
 
-# =====================================
-# RETRIEVE A MEMORY
-# =====================================
-
 def get_memory(key):
+    if not isinstance(key, str):
+        return None
+
     key = key.strip().lower().replace(" ", "_")
 
     with closing(connect_db()) as conn:
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT memory_value FROM memories WHERE memory_key = ?",
-            (key,)
-        )
+        cursor.execute("""
+            SELECT id, memory_key, memory_value
+            FROM memories
+            WHERE memory_key = ?
+        """, (key,))
 
-        result = cursor.fetchone()
+        return cursor.fetchone()
 
-    if result:
-        return result[0]
-
-    return "I don't have that information."
-
-
-# =====================================
-# VIEW ALL MEMORIES
-# =====================================
 
 def get_all_memories():
     with closing(connect_db()) as conn:
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT * FROM memories ORDER BY id"
-        )
+        cursor.execute("""
+            SELECT id, memory_key, memory_value
+            FROM memories
+            ORDER BY id
+        """)
 
-        memories = cursor.fetchall()
+        return cursor.fetchall()
 
-    return memories
-
-
-# =====================================
-# DELETE A MEMORY
-# =====================================
 
 def delete_memory(key):
+    if not isinstance(key, str):
+        return "Invalid memory key."
+
     key = key.strip().lower().replace(" ", "_")
 
     with closing(connect_db()) as conn:
@@ -117,4 +100,3 @@ def delete_memory(key):
         return "Memory deleted successfully."
 
     return "Memory not found."
-
