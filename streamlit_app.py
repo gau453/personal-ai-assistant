@@ -3,14 +3,26 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 
-# -----------------------------------
-# 1. LOAD API SETTINGS
-# -----------------------------------
+# ==========================================
+# 1. PAGE CONFIGURATION
+# ==========================================
+
+st.set_page_config(
+    page_title="AI Agent",
+    page_icon="🤖",
+    layout="centered"
+)
+
+# ==========================================
+# 2. LOAD API SETTINGS
+# ==========================================
 
 load_dotenv()
 
-def get_setting(key):
-    """Read from Streamlit Cloud Secrets first, then local .env."""
+
+def get_setting(key, default=None):
+    """Read settings from Streamlit Secrets or local .env."""
+
     try:
         value = st.secrets.get(key)
         if value:
@@ -18,35 +30,43 @@ def get_setting(key):
     except Exception:
         pass
 
-    return os.getenv(key)
+    return os.getenv(key, default)
 
 
 api_key = get_setting("OPENAI_API_KEY")
-base_url = get_setting("OPENAI_BASE_URL")
-model_name = get_setting("MODEL_NAME")
+
+base_url = get_setting(
+    "OPENAI_BASE_URL",
+    "https://api.groq.com/openai/v1"
+)
+
+model_name = get_setting(
+    "MODEL_NAME",
+    "openai/gpt-oss-120b"
+)
 
 if not api_key or not model_name:
     st.error(
-        "API settings are missing. Check your .env file "
-        "or Streamlit Cloud Secrets."
+        "API settings are missing. "
+        "Please configure your Groq API key and model name "
+        "in Streamlit Secrets or your local .env file."
     )
     st.stop()
 
+
 # Set environment variables before importing agent.py
+
 os.environ["OPENAI_API_KEY"] = api_key
+os.environ["OPENAI_BASE_URL"] = base_url
 os.environ["MODEL_NAME"] = model_name
 
-if base_url:
-    os.environ["OPENAI_BASE_URL"] = base_url
-else:
-    os.environ.pop("OPENAI_BASE_URL", None)
 
-
-# -----------------------------------
-# 2. IMPORT PROJECT FUNCTIONS
-# -----------------------------------
+# ==========================================
+# 3. IMPORT PROJECT FUNCTIONS
+# ==========================================
 
 from agent import ask_agent
+
 from memory import (
     create_memory_table,
     save_memory,
@@ -54,6 +74,7 @@ from memory import (
     get_all_memories,
     delete_memory
 )
+
 from tools import (
     create_task_table,
     add_task,
@@ -62,27 +83,29 @@ from tools import (
 )
 
 
-# -----------------------------------
-# 3. PAGE CONFIGURATION
-# -----------------------------------
+# ==========================================
+# 4. APPLICATION HEADER
+# ==========================================
 
-st.set_page_config(
-    page_title="Personal AI Assistant",
-    page_icon="🤖",
-    layout="centered"
+st.title("🤖 AI Agent")
+
+st.caption(
+    "Your personal AI assistant for conversations, "
+    "learning, memories and tasks."
 )
 
-st.title("🤖 Personal AI Assistant")
-st.caption("Your AI assistant for conversations, memories and tasks.")
 
-# Create database tables
+# ==========================================
+# 5. DATABASE INITIALIZATION
+# ==========================================
+
 create_memory_table()
 create_task_table()
 
 
-# -----------------------------------
-# 4. SESSION STATE
-# -----------------------------------
+# ==========================================
+# 6. SESSION STATE
+# ==========================================
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -91,11 +114,12 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 
-# -----------------------------------
-# 5. MEMORY CONTEXT
-# -----------------------------------
+# ==========================================
+# 7. BUILD MEMORY CONTEXT
+# ==========================================
 
 def build_memory_context():
+
     memories = get_all_memories()
 
     if not memories:
@@ -104,73 +128,88 @@ def build_memory_context():
     result = []
 
     for item in memories:
-        result.append(f"{item[1]}: {item[2]}")
+        result.append(
+            f"{item[1]}: {item[2]}"
+        )
 
     return "\n".join(result)
 
 
-# -----------------------------------
-# 6. COMMAND HANDLER
-# -----------------------------------
+# ==========================================
+# 8. COMMAND HANDLER
+# ==========================================
 
 def handle_command(user_input):
+
     text = user_input.strip()
     lower = text.lower()
 
-    # Help
+    # HELP COMMAND
+
     if lower == "help":
+
         return """
-Available commands:
+### AI Agent Commands
 
-MEMORY:
-remember learning: your information
-remember my personal info: your information
-retrieve learning: keyword
-show memories
-forget: memory_key
+**MEMORY MANAGEMENT**
 
-TASKS:
-add task: task name
-show tasks
-complete task: task ID
+- `remember learning: your information`
+- `remember my personal info: your information`
+- `retrieve learning: learning`
+- `show memories`
+- `forget: learning`
 
-Type anything else to chat with the AI.
+**TASK MANAGEMENT**
+
+- `add task: task name`
+- `show tasks`
+- `complete task: task ID`
+
+You can also chat naturally with AI Agent.
 """
 
-    # Show memories
+    # SHOW MEMORIES
+
     if lower == "show memories":
+
         memories = get_all_memories()
 
         if not memories:
             return "You have no saved memories."
 
         return "\n".join(
-            [f"{item[1]}: {item[2]}" for item in memories]
+            f"{item[1]}: {item[2]}"
+            for item in memories
         )
 
-    # Remember learning
+    # SAVE LEARNING
+
     if lower.startswith("remember learning:"):
+
         value = text.split(":", 1)[1].strip()
 
         if not value:
             return "Please provide something to remember."
 
-        save_memory("learning", value)
-        return "Learning saved successfully!"
+        return save_memory("learning", value)
 
-    # Remember personal information
+    # SAVE PERSONAL INFORMATION
+
     if lower.startswith("remember my personal info:"):
+
         value = text.split(":", 1)[1].strip()
 
         if not value:
-            return "Please provide information to remember."
+            return "Please provide personal information."
 
-        save_memory("personal_info", value)
-        return "Personal information saved!"
+        return save_memory("personal_info", value)
 
-    # Retrieve learning
+    # RETRIEVE LEARNING
+
     if lower.startswith("retrieve learning:"):
+
         key = text.split(":", 1)[1].strip()
+
         memory = get_memory(key)
 
         if memory:
@@ -178,28 +217,32 @@ Type anything else to chat with the AI.
 
         return "No matching memory found."
 
-    # Forget memory
+    # DELETE MEMORY
+
     if lower.startswith("forget:"):
+
         key = text.split(":", 1)[1].strip()
 
         if not key:
             return "Please provide a memory key."
 
-        delete_memory(key)
-        return "Memory deletion requested."
+        return delete_memory(key)
 
-    # Add task
+    # ADD TASK
+
     if lower.startswith("add task:"):
+
         task = text.split(":", 1)[1].strip()
 
         if not task:
             return "Please provide a task."
 
-        add_task(task)
-        return "Task added successfully!"
+        return add_task(task)
 
-    # Show tasks
+    # SHOW TASKS
+
     if lower == "show tasks":
+
         tasks = get_tasks()
 
         if not tasks:
@@ -213,57 +256,77 @@ Type anything else to chat with the AI.
             ]
         )
 
-    # Complete task
+    # COMPLETE TASK
+
     if lower.startswith("complete task:"):
+
         task_id = text.split(":", 1)[1].strip()
 
         if not task_id.isdigit():
             return "Please enter a valid task ID."
 
-        complete_task(int(task_id))
-        return "Task completion updated."
+        return complete_task(int(task_id))
 
     return None
 
 
-# -----------------------------------
-# 7. SIDEBAR
-# -----------------------------------
+# ==========================================
+# 9. SIDEBAR
+# ==========================================
 
 with st.sidebar:
-    st.header("📌 Assistant Features")
+
+    st.title("🤖 AI Agent")
+
+    st.caption("Your personal AI assistant")
+
+    st.divider()
+
+    st.subheader("Features")
 
     st.markdown("""
-    - 💬 AI Chat
-    - 🧠 Memory Storage
+    - 💬 AI Conversations
+    - 🧠 Long-term Memory
     - 📝 Task Management
     - 🔍 Memory Retrieval
+    - 📚 Learning Assistance
     """)
 
     st.divider()
 
-    if st.button("Clear Chat"):
+    if st.button("🗑️ Clear Chat", use_container_width=True):
+
         st.session_state.messages = []
         st.session_state.chat_history = []
+
         st.rerun()
 
-    st.caption("Type `help` in the chat to see commands.")
+    st.caption("Type `help` to see available commands.")
 
 
-# -----------------------------------
-# 8. DISPLAY CHAT HISTORY
-# -----------------------------------
+# ==========================================
+# 10. DISPLAY CHAT HISTORY
+# ==========================================
 
 for message in st.session_state.chat_history:
+
     with st.chat_message(message["role"]):
+
         st.markdown(message["content"])
 
 
-# -----------------------------------
-# 9. CHAT INPUT AND AI RESPONSE
-# -----------------------------------
+# ==========================================
+# 11. CHAT INPUT
+# ==========================================
 
-user_input = st.chat_input("Message your AI assistant...")
+user_input = st.chat_input(
+    "Message AI Agent..."
+)
+
+
+# ==========================================
+# 12. PROCESS USER MESSAGE
+# ==========================================
 
 if user_input:
 
@@ -273,91 +336,131 @@ if user_input:
     })
 
     with st.chat_message("user"):
+
         st.markdown(user_input)
 
     with st.chat_message("assistant"):
 
         try:
+
+            # Check for built-in commands
+
             command_response = handle_command(user_input)
 
             if command_response is not None:
+
                 response = command_response
 
             else:
+
+                # Get saved memories
+
                 memory_context = build_memory_context()
+
+                # AI AGENT IDENTITY
+
                 system_message = {
                     "role": "system",
-                     "content": """
-                     you are AI Agent.
-                     IDENTITY:
-                        - Your official name is AI Agent.
-                        - You are a personal AI assistant.
-                        - You were created as part of the Personal AI Assistant project.
-                        - You are powered by an AI model accessed through Groq.
-                        - Never introduce yourself as ChatGPT.
-                        - Never claim that your name is ChatGPT.
-                        - Do not claim to be an OpenAI product.
+                    "content": (
+                        "You are AI Agent, a personal AI assistant "
+                        "created as part of the Personal AI Assistant project. "
 
-                        PERSONALITY:
-                        - Friendly, intelligent and professional.
-                        - Speak naturally like a personal assistant.
-                        - Give detailed answers when needed.
-                        - Be helpful and conversational.
-                        
-                        CAPABILITIES:
-                        - Answer questions.
-                        - Remember user information using the available memory system.
-                        - Help manage tasks.
-                        - Assist with programming and learning.
-                        - Help with planning and productivity.
-                        
-                        INTRODUCTION:
-                        If asked who you are, respond:
-                        "I am AI Agent, your personal AI assistant.
-                        I can help you with conversations, learning,
-                        memory storage, task management and productivity."
-                        
-                        IMPORTANT:
-                        Always maintain your identity as AI Agent.
-                        Be honest if asked about your underlying AI technology.
-                        
-                        SAVED MEMORIES:
-                        """
-                            + memory_context
-                        }
+                        "IDENTITY: "
+                        "Your official name is AI Agent. "
+                        "You are a personal AI assistant powered by an "
+                        "AI model accessed through Groq. "
+                        "Your product name is AI Agent. "
+                        "Never introduce yourself as ChatGPT. "
+                        "Never claim that your product name is ChatGPT. "
+                        "Be honest about your underlying AI technology. "
 
+                        "PERSONALITY: "
+                        "Be friendly, intelligent, professional and conversational. "
+                        "Give clear and useful answers. "
+                        "Explain complicated topics simply. "
+
+                        "CAPABILITIES: "
+                        "Help with questions, programming, learning, "
+                        "memory management, task management and productivity. "
+
+                        "INTRODUCTION: "
+                        "If asked who you are, say: "
+                        "'I am AI Agent, your personal AI assistant. "
+                        "I can help you with conversations, learning, "
+                        "memory storage and task management.' "
+
+                        "\n\nSAVED MEMORIES:\n"
+                        + memory_context
+                    )
+                }
 
                 # Keep recent conversation context
-                recent_messages = st.session_state.messages[-10:]
 
-                messages = [
-                    system_message
-                ] + recent_messages + [
-                    {"role": "user", "content": user_input}
-                ]
+                recent_messages = (
+                    st.session_state.messages[-10:]
+                )
+
+                messages = (
+                    [system_message]
+                    + recent_messages
+                    + [
+                        {
+                            "role": "user",
+                            "content": user_input
+                        }
+                    ]
+                )
+
+                # Get AI response from Groq
 
                 response = ask_agent(messages)
 
-                st.session_state.messages.append({
-                    "role": "user",
-                    "content": user_input
-                })
+                # Save conversation context
 
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": response
-                })
+                st.session_state.messages.extend([
+                    {
+                        "role": "user",
+                        "content": user_input
+                    },
+                    {
+                        "role": "assistant",
+                        "content": response
+                    }
+                ])
+
+            # Display response
 
             st.markdown(response)
 
         except Exception as error:
+
             response = (
                 "Something went wrong while processing your request. "
-                "Please check your configuration and try again."
+                "Please check your API settings and try again."
             )
+
             st.error(response)
-            print("Application error:", type(error).__name__)
+
+            print(
+                "Application error:",
+                type(error).__name__
+            )
+
+    # Save displayed conversation
+
     st.session_state.chat_history.append({
         "role": "assistant",
         "content": response
     })
+
+
+# ==========================================
+# 13. FOOTER
+# ==========================================
+
+st.divider()
+
+st.caption(
+    "AI Agent | Powered by Groq | Personal AI Assistant"
+)
+
