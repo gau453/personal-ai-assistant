@@ -324,8 +324,7 @@ if user_input:
                 "Please check your configuration and try again."
             )
             st.error(response)
-            print("Application error:", error)
-
+            print("Application error:", type(error).__name__)
     st.session_state.chat_history.append({
         "role": "assistant",
         "content": response
